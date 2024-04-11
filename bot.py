@@ -4,6 +4,7 @@ import json
 from discord import app_commands
 from discord.ext import commands
 from discord.ext import tasks
+from discord import Embed
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -25,25 +26,39 @@ bot = Bot()
 rotation = []
 timeToTimeout = 0
 
-@bot.command(name="rotation-clear", description="Clears the rotation.")
-async def clear_rotation(ctx):
-    print("Clearing rotation")
-    global rotation
-    rotation = []
-    await ctx.send(content="Rotation cleared")
+@bot.command(name="commands", description="Displays command information.")
+async def help(ctx):
+    embed = Embed(title="Command Information", description="Here are the available commands:", color=0x00ff00)
+    embed.add_field(name="!rotation-add {username}", value="Add a user that is in the current channel to the rotation.", inline=False)
+    embed.add_field(name="!rotation-remove {username}", value="Remove a user that is in the channel from the rotation.", inline=False)
+    embed.add_field(name="!rotation-info", value="Print out the current rotation.", inline=False)
+    embed.add_field(name="!rotation-clear", value="Clear the current rotation.", inline=False)
+    embed.add_field(name="!chain-timer", value="Print out information about the factions current chain.", inline=False)
+    embed.add_field(name="!chain-start {seconds}", value="Start a loop where the current rotation and chain information will be printed every n seconds(default 30).", inline=False)
+    embed.add_field(name="!chain-stop", value="Stop the loop.", inline=False)
+    await ctx.send(embed=embed)
 
-@bot.command(name="rotation-info", description="Prints chain information.")
-async def rotation_info(ctx):
-    print("rotation : ", rotation)
-    rotation_usernames = [f"{i+1}. {member.name}" for i, member in enumerate(rotation)]
-    rotation_str = '\n'.join(rotation_usernames)
-    await ctx.send(content=f'```Current rotation:\n{rotation_str}```')
+@bot.command(name="chain-start", description="Starts the chain.")
+async def handle_chain_start(ctx):
+    try:
+        seconds = float(ctx.message.content.split(' ')[1])
+    except IndexError:
+        seconds = 30.0
+    if seconds < 30:
+        await ctx.send(content=f'Interval should be at least 30 seconds.')
+        return
+    chain_task.change_interval(seconds=seconds)
+    chain_task.start(ctx)
+
+@bot.command(name="chain-stop", description="Stops the chain.")
+async def handle_chain_stop(ctx):
+    chain_task.cancel()
+    await ctx.send(content=f'Timer stopped, use !chain-start to start again.')
 
 @bot.command(name="chain-timer", description="Prints chain information.")
 async def get_faction_chain_timer(ctx):
     print("Checking chain timer")
     url = f'https://api.torn.com/faction/?selections=chain&key={config["TORN_API_KEY"]}'
-    print("URL : ", url)
     response = requests.get(url).json()
     timeout = response['chain']['timeout']
     current = response['chain']['current']
@@ -61,6 +76,21 @@ async def handle_rotation_add(ctx):
     except Exception as error:
         print(f"Error fetching user: {error}")
         return
+
+@bot.command(name="rotation-clear", description="Clears the rotation.")
+async def clear_rotation(ctx):
+    print("Clearing rotation")
+    global rotation
+    rotation = []
+    await ctx.send(content="Rotation cleared")
+
+@bot.command(name="rotation-info", description="Prints chain information.")
+async def rotation_info(ctx):
+    rotation_usernames = [f"{i+1}. {member.name}" for i, member in enumerate(rotation)]
+    rotation_str = '\n'.join(rotation_usernames)
+    embed = Embed(title="Current rotation", description="This is the current rotation:", color=0x00ff00)
+    embed.add_field(name="Current rotation:", value=rotation_str, inline=False)
+    await ctx.send(embed=embed)
     
 @bot.command(name="rotation-remove", description="Removes a user from the rotation.")
 async def handle_rotation_remove(ctx):
@@ -71,20 +101,6 @@ async def handle_rotation_remove(ctx):
     except Exception as error:
         print(f"Error fetching user: {error}")
         return
-
-@bot.command(name="chain-start", description="Starts the chain.")
-async def handle_chain_start(ctx):
-    seconds = float(ctx.message.content.split(' ')[1])
-    if seconds < 30:
-        await ctx.send(content=f'Interval should be at least 30 seconds.')
-        return
-    chain_task.change_interval(seconds=seconds)
-    chain_task.start(ctx)
-
-@bot.command(name="chain-stop", description="Stops the chain.")
-async def handle_chain_stop(ctx):
-    chain_task.cancel()
-    await ctx.send(content=f'Timer stopped, use !chain-start to start again.')
 
 @tasks.loop(seconds=30)
 async def chain_task(ctx):
@@ -98,14 +114,12 @@ async def remove_user_from_rotation(user, ctx):
     if user not in rotation:
         await ctx.send(f'{user.name} is not in the rotation.')
         return
-    print("Removing user from rotation", user)
     rotation.remove(user)
 
 async def add_user_to_rotation(user, ctx):
     if user in rotation:
         await ctx.send(f'{user.name} is already in the rotation.')
         return
-    print("Adding user to rotation", user)
     rotation.append(user)
 
 async def get_and_validate_member(ctx):
