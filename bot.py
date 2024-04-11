@@ -22,13 +22,6 @@ class Bot(commands.Bot):
         print(f"Logged onto {self.user}")
 
 bot = Bot()
-
-@bot.command(name="first", description="The first command!")
-async def first(ctx):
-    print("First command called")
-    await ctx.send(content="Hello!")
-
-
 rotation = []
 
 @bot.command(name="rotation-clear", description="Clears the rotation.")
@@ -41,9 +34,12 @@ async def clear_rotation(ctx):
 @bot.command(name="rotation-info", description="Prints chain information.")
 async def rotation_info(ctx):
     print("rotation : ", rotation)
-    rotation_usernames = ', '.join([member.name for member in rotation])
+    # rotation_usernames = ', '.join([member.name for member in rotation])
+    rotation_usernames = [f"{i+1}. {member.name}" for i, member in enumerate(rotation)]
+    rotation_str = '\n'.join(rotation_usernames)
+    await ctx.send(content=f'Current rotation:\n{rotation_str}')
     # await ctx.send(f'Current rotation: {rotation_usernames}')
-    await ctx.send(content=f'Current rotation: {rotation_usernames}')
+    # await ctx.send(content=f'Current rotation: {rotation_usernames}')
 
 @bot.command(name="chain-timer", description="Prints chain information.")
 async def get_faction_chain_timer(ctx):
@@ -62,9 +58,7 @@ async def handle_rotation_add(ctx):
         user = await get_and_validate_member(ctx)
         print("User : ", user)
         await add_user_to_rotation(user, ctx)
-        rotation_usernames = ', '.join([member.name for member in rotation])
-        # await ctx.send(f'Current rotation: {rotation_usernames}')
-        await ctx.send(content=f'Current rotation: {rotation_usernames}')
+        await rotation_info(ctx)
     except Exception as error:
         print(f"Error fetching user: {error}")
         return
@@ -74,8 +68,7 @@ async def handle_rotation_remove(ctx):
     try:
         user = await get_and_validate_member(ctx)
         await remove_user_from_rotation(user, ctx)
-        rotation_usernames = ', '.join([member.name for member in rotation])
-        await ctx.send(content=f'Current rotation: {rotation_usernames}')
+        await rotation_info(ctx)
     except Exception as error:
         print(f"Error fetching user: {error}")
         return
