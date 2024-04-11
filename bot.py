@@ -74,6 +74,11 @@ async def handle_rotation_remove(ctx):
 
 @bot.command(name="chain-start", description="Starts the chain.")
 async def handle_chain_start(ctx):
+    seconds = float(ctx.message.content.split(' ')[1])
+    if seconds < 30:
+        await ctx.send(content=f'Interval should be at least 30 seconds.')
+        return
+    chain_task.change_interval(seconds=seconds)
     chain_task.start(ctx)
 
 @bot.command(name="chain-stop", description="Stops the chain.")
